@@ -4,6 +4,7 @@ import cv2
 from PIL import Image
 import matplotlib.pyplot as plt
 import os
+import unittest
 
 # Input size: 3x1080x1920
 # Output size: 3x128x320
@@ -165,3 +166,46 @@ def pad(cropped_samples, length0, length1, center1):
     #print(f"padded_samples: {padded_samples.shape}")
 
     return padded_samples
+
+def visualize_cropping():
+    # Generate a sample batch of frames (batch_size=2, frames_count=5, height=10, width=10, channels=3)
+    batch_size = 2
+    frames_count = 5
+    height = 1920
+    width = 1080
+    channels = 3
+    frames = tf.random.uniform((batch_size, frames_count, height, width, channels), dtype=tf.float32)
+    
+    # Coordinates and target dimensions
+    coordinates = (tf.constant([5, 5], dtype=tf.int32), tf.constant([5, 5], dtype=tf.int32))
+    target_dimension = (128, 320)
+    
+    # Apply the crop function
+    cropped_frames = crop(frames, coordinates, target_dimension)
+    
+    # Convert tensors to numpy arrays for visualization
+    frames_np = frames.numpy()
+    cropped_frames_np = cropped_frames.numpy()
+    
+    # Plot the original and cropped frames
+    fig, axes = plt.subplots(batch_size, frames_count * 2, figsize=(20, 8))
+    
+    for i in range(batch_size):
+        for j in range(frames_count):
+            # Plot original frame
+            ax_orig = axes[i, j * 2]
+            ax_orig.imshow(frames_np[i, j])
+            ax_orig.set_title(f'Original Frame {j+1}')
+            ax_orig.axis('off')
+            
+            # Plot cropped frame
+            ax_cropped = axes[i, j * 2 + 1]
+            ax_cropped.imshow(cropped_frames_np[i, :, :, j * channels:(j + 1) * channels])
+            ax_cropped.set_title(f'Cropped Frame {j+1}')
+            ax_cropped.axis('off')
+    
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    visualize_cropping()
