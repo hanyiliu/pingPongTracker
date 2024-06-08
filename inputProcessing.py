@@ -1,10 +1,10 @@
-import numpy
-numpy.float = numpy.float64
-numpy.int = numpy.int_
+import numpy as np
+np.float = np.float64
+np.int = np.int_
 import json
 
 import tensorflow as tf
-numpy.set_printoptions(threshold=2000)
+np.set_printoptions(threshold=2000)
 
 import skvideo.io # For mp4 to tensors processing
 import config
