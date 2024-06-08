@@ -4,6 +4,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 from model.model import Model, GlobalModel
+from model.utilities import downscale
 from inputProcessing import video_to_tensor, temporary_format_input, format_input, format_output, format_output_bell_curve
 
 input = video_to_tensor(config.input_fp)
@@ -11,10 +12,10 @@ input = video_to_tensor(config.input_fp)
 start_frame = 22
 end_frame = 56
 batch_size = end_frame - start_frame
+
 input = format_input(input, start_frame, end_frame)
-# print(f"input: {input.shape}")
-#print(f"Input: {input.shape}")
-# Input shape: (batch_size, 9, 1080, 1920, 3)
+downscaled_input = downscale(input, (128, 320))
+#print(f"downscaled_input shape: {downscaled_input.shape}")
 
 frames = tf.range(start_frame, end_frame)
 frames = tf.reshape(frames, (-1, 1))
@@ -23,12 +24,12 @@ frame_numbers = tf.constant(frames, dtype=tf.int32)
 
 formatted_outputs = format_output("data/game_1_ball_markup.json")
 
+
 downscaled_formatted_outputs = tf.cast(formatted_outputs, tf.float32)
 downscaled_frame_numbers = downscaled_formatted_outputs[:, 0]
 downscaled_x_outputs = downscaled_formatted_outputs[:, 1] * (320 / 1920)
 downscaled_y_outputs = downscaled_formatted_outputs[:, 2] * (128 / 1080)
 
-# Concatenate the modified columns back into a single tensor
 downscaled_formatted_outputs = tf.stack([downscaled_frame_numbers, downscaled_x_outputs, downscaled_y_outputs], axis=1)
 downscaled_formatted_outputs = tf.cast(downscaled_formatted_outputs, tf.int32)
 
@@ -40,25 +41,18 @@ output = format_output_bell_curve(frame_numbers, formatted_outputs)
 # model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 global_model = GlobalModel()
-
+print(f"downscaled_input shape: {downscaled_input.shape}")
 global_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-global_model.fit(input, downscaled_output, batch_size=batch_size, epochs=3)
+global_model.fit(downscaled_input, downscaled_output, batch_size=batch_size, epochs=3)
 
 
-#
-# # Train the model for 3 epochs
-print(f"Input: {input.shape}")
-print(f"Output: x: {downscaled_output[0].shape}, y: {downscaled_output[1].shape}")
-#
-# model.fit(input, output, batch_size=batch_size, epochs=3)
-
-global_predictions = global_model.predict(input, batch_size=batch_size)
+global_predictions = global_model.predict(downscaled_input, batch_size=batch_size)
 print(f"Predictions: {global_predictions[0].shape} and {global_predictions[1].shape}")
 x_guess = tf.argmax(global_predictions[0], axis=1)
 y_guess = tf.argmax(global_predictions[1], axis=1)
 
-x_actual = tf.argmax(output[0], axis=1)
-y_actual = tf.argmax(output[1], axis=1)
+x_actual = tf.argmax(downscaled_output[0], axis=1)
+y_actual = tf.argmax(downscaled_output[1], axis=1)
 
 print(f"X_guess: {x_guess}")
 print(f"Y_guess: {y_guess}")

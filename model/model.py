@@ -15,7 +15,7 @@ class GlobalStage(tf.keras.layers.Layer):
 
     def call(self, input):
         #input = downscale(input, (128, 320))
-        input = downscale(input, (128, 320))
+        
         #print(f"Shape: {input.shape}")
         input = self.feature_extractor(input)
         x1 = self.x_coord_extractor(input)
