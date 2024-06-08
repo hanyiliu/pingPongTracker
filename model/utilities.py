@@ -9,17 +9,35 @@ import os
 # Output size: 3x128x320
 
 def downscale(frames, target_dimension):
+    """
+    Downscale all sample's frames from the original dimensions to the target dimensions.
 
-    # Step 2: Reshape to combine batch and time dimensions
-    reshaped_tensor = tf.reshape(frames, [-1, 1080, 1920, 3])  # Shape: (n * 9, 1080, 1920, 3)
-    print(reshaped_tensor.shape)
-    # Step 3: Resize the images
-    resized_images = tf.image.resize(reshaped_tensor, size=target_dimension, method=tf.image.ResizeMethod.BILINEAR)
+    Args:
+    frames (tf.Tensor): Input frame with shape (batch_size, frames, original_height, original_width, channels).
+    target_dimension (tuple): Target dimensions (target_height, target_width).
 
-    # Step 4: Reshape to separate time dimension and combine channel dimension
-    final_tensor = tf.reshape(resized_images, [frames.shape[0], target_dimension[0], target_dimension[1], -1])  # Shape: (n, 128, 320, 27)
+    Returns:
+    tf.Tensor: Downscaled frames of shape (batch_size, frames, target_height, target_width, channels).
+    """
+    target_height, target_width = target_dimension
 
-    return final_tensor
+    # Get the batch size and number of frames
+    batch_size, num_frames, original_height, original_width, channels = frames.shape
+
+    # Reshape to merge batch_size and num_frames to apply resize function
+    reshaped_frames_before_resize = tf.reshape(frames, (-1, original_height, original_width, channels))
+    print(f"Reshaped before resizing: {reshaped_frames_before_resize.shape}")
+
+    # Resize the frames
+    resized_frames = tf.image.resize(reshaped_frames_before_resize, [target_height, target_width], method=tf.image.ResizeMethod.BILINEAR)
+
+    # Reshape back to the original structure
+    downscaled_frames = tf.reshape(resized_frames, (batch_size, num_frames, target_height, target_width, channels))
+    print(f"Reshaped after resizing: {downscaled_frames.shape}")
+    #print(downscaled_frames)
+    print(f"downscaled min max: {tf.reduce_min(downscaled_frames)}, {tf.reduce_max(downscaled_frames)}")
+
+    return downscaled_frames
 
 def crop_single(frames, coordinates, target_dimension):
     """

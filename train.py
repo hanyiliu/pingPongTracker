@@ -2,20 +2,44 @@ import config
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import math
 
 from model.model import Model, GlobalModel
 from model.utilities import downscale
 from inputProcessing import video_to_tensor, temporary_format_input, format_input, format_output, format_output_bell_curve
 
-input = video_to_tensor(config.input_fp)
+def visualize_first_frame_first_batch_sample(tensor):
+    # Ensure the tensor has the expected shape
+    if tensor.shape[-1] != 3:
+        raise ValueError("The number of channels is not 3.")
 
+    # Select the first batch sample and the first frame
+    first_frame = tensor[0, 0, :, :, :].numpy()
+
+    # Display the frame
+    plt.figure(figsize=(6, 6))
+    plt.imshow(first_frame)
+    plt.axis("off")
+    plt.title("First Frame of the First Batch Sample")
+    plt.show()
+
+
+# Example usage
+# visualize_images(downscaled_input)
+
+
+input = video_to_tensor(config.input_fp)
+print(f"input shape: {input.shape}")
 start_frame = 22
 end_frame = 56
 batch_size = end_frame - start_frame
 
 input = format_input(input, start_frame, end_frame)
+print(f"formatted input shape: {input.shape}")
 downscaled_input = downscale(input, (128, 320))
-#print(f"downscaled_input shape: {downscaled_input.shape}")
+downscaled_input = tf.cast(downscaled_input, tf.int32)
+
+visualize_first_frame_first_batch_sample(downscaled_input)
 
 frames = tf.range(start_frame, end_frame)
 frames = tf.reshape(frames, (-1, 1))
