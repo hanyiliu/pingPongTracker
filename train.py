@@ -8,24 +8,74 @@ from model.model import Model, GlobalModel
 from model.utilities import downscale
 from inputProcessing import video_to_tensor, temporary_format_input, format_input, format_output, format_output_bell_curve
 
-def visualize_first_frame_first_batch_sample(tensor):
-    # Ensure the tensor has the expected shape
-    if tensor.shape[-1] != 3:
-        raise ValueError("The number of channels is not 3.")
+def visualize_all_frame(collapsed_frames, num_frames):
+    """
+    Visualize the first frame of the first sample from the collapsed frames tensor.
 
-    # Select the first batch sample and the first frame
-    first_frame = tensor[0, 0, :, :, :].numpy()
+    Args:
+    collapsed_frames (tf.Tensor): Input tensor with shape (batch_size, height, width, all channels of each frame).
+    """
+    collapsed_frames = tf.cast(collapsed_frames, tf.int32)
 
-    # Display the frame
-    plt.figure(figsize=(6, 6))
-    plt.imshow(first_frame)
-    plt.axis("off")
-    plt.title("First Frame of the First Batch Sample")
-    plt.show()
+    # Define the number of channels per frame
+    channels_per_frame = 3
+
+    # Get the batch size (number of samples)
+    batch_size = collapsed_frames.shape[0]
+
+    # Iterate through each sample
+    for sample_idx in range(batch_size):
+        # Calculate the number of rows and columns for the grid
+        rows = int(num_frames ** 0.5)
+        cols = (num_frames + rows - 1) // rows
+
+        # Create a figure with subplots for the current sample
+        fig, axes = plt.subplots(rows, cols, figsize=(15, 15))
+        axes = axes.flatten()
+
+        # Iterate through each frame and visualize it
+        for frame_idx in range(num_frames):
+            start_channel = frame_idx * channels_per_frame
+            end_channel = start_channel + channels_per_frame
+
+            # Select the current frame for the current sample
+            current_frame = collapsed_frames[sample_idx, :, :, start_channel:end_channel]
+
+            # Display the frame
+            axes[frame_idx].imshow(current_frame)
+            axes[frame_idx].axis("off")
+            axes[frame_idx].set_title(f"Sample {sample_idx + 1}, Frame {frame_idx + 1}")
+
+        # Hide any unused subplots
+        for j in range(frame_idx + 1, len(axes)):
+            axes[j].axis("off")
+
+        plt.tight_layout()
+        plt.show()
 
 
-# Example usage
-# visualize_images(downscaled_input)
+def collapse_channels(frames):
+    """
+    Collapse the tensor of frames to merge all channels of each frame into one channel dimension,
+    and reorder the channels such that all red channels come first, followed by all green channels,
+    and finally all blue channels.
+
+    Args:
+    frames (tf.Tensor): Input frames with shape (batch_size, frames, height, width, channels).
+
+    Returns:
+    tf.Tensor: Collapsed frames with shape (batch_size, height, width, frames * channels).
+    """
+    # Get the shape of the input tensor
+    batch_size, num_frames, height, width, channels = frames.shape
+
+    # Transpose the tensor to bring the channels to the front
+    frames_transposed = tf.transpose(frames, perm=[0, 2, 3, 1, 4])
+
+    # Reshape to merge the frames and channels dimensions
+    collapsed_frames = tf.reshape(frames_transposed, (batch_size, height, width, num_frames * channels))
+
+    return collapsed_frames
 
 
 input = video_to_tensor(config.input_fp)
@@ -35,11 +85,12 @@ end_frame = 56
 batch_size = end_frame - start_frame
 
 input = format_input(input, start_frame, end_frame)
-print(f"formatted input shape: {input.shape}")
-downscaled_input = downscale(input, (128, 320))
-downscaled_input = tf.cast(downscaled_input, tf.int32)
 
-visualize_first_frame_first_batch_sample(downscaled_input)
+downscaled_input = downscale(input, (128, 320))
+downscaled_input = collapse_channels(downscaled_input)
+
+# print(f"downscaled input shape: {downscaled_input.shape}")
+#visualize_all_frame(downscaled_input, 9)
 
 frames = tf.range(start_frame, end_frame)
 frames = tf.reshape(frames, (-1, 1))
@@ -60,14 +111,14 @@ downscaled_formatted_outputs = tf.cast(downscaled_formatted_outputs, tf.int32)
 # print(f"formatted_outputs: {formatted_outputs.shape}")
 downscaled_output = format_output_bell_curve(frame_numbers, downscaled_formatted_outputs, width=320, height=128)
 output = format_output_bell_curve(frame_numbers, formatted_outputs)
-
-# model = Model()
-# model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+print(f"downscaled_output shape: {downscaled_output[0].shape}, {downscaled_output[1].shape}")
 
 global_model = GlobalModel()
-print(f"downscaled_input shape: {downscaled_input.shape}")
+# print(f"downscaled_input shape: {downscaled_input.shape}")
+# print(f"downscaled_output x: {downscaled_output[0]}")
+# print(f"downscaled_output y: {downscaled_output[1]}")
 global_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-global_model.fit(downscaled_input, downscaled_output, batch_size=batch_size, epochs=3)
+global_model.fit(downscaled_input, downscaled_output, batch_size=batch_size, epochs=100)
 
 
 global_predictions = global_model.predict(downscaled_input, batch_size=batch_size)
@@ -83,27 +134,3 @@ print(f"Y_guess: {y_guess}")
 
 print(f"Actual X: {x_actual}")
 print(f"Actual Y: {y_actual}")
-
-# # Convert TensorFlow tensor to NumPy array
-# numpy_data = predictions[0]
-# # Plotting the data
-# # Create a figure with 5 subplots, one for each row
-# fig, axs = plt.subplots(batch_size, 1, figsize=(12, 20), sharex=True)
-#
-# # Plot each row in a separate subplot
-# for i in range(numpy_data.shape[0]):
-#     axs[i].plot(numpy_data[i])
-#     axs[i].set_title(f'Series {i+1}')
-#     axs[i].set_ylabel('Value')
-#
-# # Set the xlabel for the last subplot
-# axs[-1].set_xlabel('Index')
-#
-# # Adjust layout
-# plt.tight_layout()
-#
-# # Show the plot
-# plt.show()
-# model.build((5, 9, 1080, 1920, 3))
-
-# print(model.summary())

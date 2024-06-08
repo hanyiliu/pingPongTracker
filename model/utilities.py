@@ -35,7 +35,6 @@ def downscale(frames, target_dimension):
     downscaled_frames = tf.reshape(resized_frames, (batch_size, num_frames, target_height, target_width, channels))
     print(f"Reshaped after resizing: {downscaled_frames.shape}")
     #print(downscaled_frames)
-    print(f"downscaled min max: {tf.reduce_min(downscaled_frames)}, {tf.reduce_max(downscaled_frames)}")
 
     return downscaled_frames
 
