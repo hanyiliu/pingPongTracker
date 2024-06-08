@@ -10,6 +10,31 @@ import skvideo.io # For mp4 to tensors processing
 import config
 import matplotlib.pyplot as plt
 
+def save_tensor(tensor, file_path):
+    """
+    Save a tensor to a local file.
+
+    Args:
+    tensor (tf.Tensor): The tensor to save.
+    file_path (str): The file path where the tensor will be saved.
+    """
+    serialized_tensor = tf.io.serialize_tensor(tensor)
+    tf.io.write_file(file_path, serialized_tensor)
+
+def load_tensor(file_path):
+    """
+    Load a tensor from a local file.
+
+    Args:
+    file_path (str): The file path from which to load the tensor.
+
+    Returns:
+    tf.Tensor: The loaded tensor.
+    """
+    serialized_tensor = tf.io.read_file(file_path)
+    tensor = tf.io.parse_tensor(serialized_tensor, out_type=tf.float32)
+    return tensor
+
 def video_to_tensor(video_fp):
     video_tensor = skvideo.io.vread(video_fp)
     print(video_tensor.shape)
@@ -44,35 +69,40 @@ def temporary_format_input(frames):
     #print(f"Final input: {formatted_input.shape}")
     return formatted_input
 
-def format_input(frames, start_frame, end_frame):
+def format_input(formatted_outputs, video_tensor):
     """
-    Format the input to our model's desired shapes.
+    Create a formatted input tensor with shape (batch_size, frames=9, height, width, 3)
+    from the given formatted outputs and video tensor.
 
     Args:
-    frame (tf.Tensor): Input frame with shape (frames, height, width, channels).
-    start_frame (int): The frame to start formatting from.
-    end_frame (int): The frame to stop formatting at.
+    formatted_outputs (tf.Tensor): Tensor with shape (batch_size, 3), where each row corresponds to (frame_number, x_coord, y_coord).
+    video_tensor (tf.Tensor): Tensor with shape (# of frames, height, width, channels=3).
 
     Returns:
-    tf.Tensor: Reformatted training samples of input data of shape (batch_size, frames, target_height, target_width, channels).
+    tf.Tensor: Formatted input tensor with shape (batch_size, frames=9, height, width, 3).
     """
-    frames_count, height, width, channels = frames.shape
+    # Get the shape of the video tensor
+    num_frames, height, width, channels = video_tensor.shape
 
-    n_prev = 8
+    # Initialize a list to hold the formatted input for each sample
+    formatted_input_list = []
 
-    batch_size = end_frame - start_frame
+    for frame_info in formatted_outputs:
+        frame_number = frame_info[0].numpy()
 
-    formatted_input = []
+        # Ensure we have at least 9 frames including the current one
+        if frame_number < 8:
+            raise ValueError(f"Frame number {frame_number} is too small to get 9 frames including the current one.")
 
-    for i in range(batch_size):
-        current_frame = start_frame + i
-        sample = frames[current_frame - 8:current_frame + 1]
-        ##print(f"i: {i}, Sample shape: {sample.shape}")
-        formatted_input.append(tf.expand_dims(sample, axis=0))
+        # Extract the current frame and its previous 8 frames
+        frames = video_tensor[frame_number-8:frame_number+1]
 
-    # Concatenate all the samples along the batch axis
-    formatted_input = tf.concat(formatted_input, axis=0)
-    #print(f"Final input: {formatted_input.shape}")
+        # Append to the list
+        formatted_input_list.append(frames)
+
+    # Stack the list into a single tensor
+    formatted_input = tf.stack(formatted_input_list)
+
     return formatted_input
 
 def format_output(output_fp):

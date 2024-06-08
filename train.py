@@ -6,7 +6,7 @@ import math
 
 from model.model import Model, GlobalModel
 from model.utilities import downscale
-from inputProcessing import video_to_tensor, temporary_format_input, format_input, format_output, format_output_bell_curve
+from inputProcessing import video_to_tensor, temporary_format_input, format_input, format_output, format_output_bell_curve, load_tensor
 
 def visualize_all_frame(collapsed_frames, num_frames):
     """
@@ -77,28 +77,9 @@ def collapse_channels(frames):
 
     return collapsed_frames
 
-
-input = video_to_tensor(config.input_fp)
-print(f"input shape: {input.shape}")
-start_frame = 22
-end_frame = 56
-batch_size = end_frame - start_frame
-
-input = format_input(input, start_frame, end_frame)
-
-downscaled_input = downscale(input, (128, 320))
-downscaled_input = collapse_channels(downscaled_input)
-
-# print(f"downscaled input shape: {downscaled_input.shape}")
-#visualize_all_frame(downscaled_input, 9)
-
-frames = tf.range(start_frame, end_frame)
-frames = tf.reshape(frames, (-1, 1))
-# Create the tensor
-frame_numbers = tf.constant(frames, dtype=tf.int32)
-
+### OUTPUT ####
 formatted_outputs = format_output("data/game_1_ball_markup.json")
-
+print(f"formatted outputs shape: {formatted_outputs.shape}")
 
 downscaled_formatted_outputs = tf.cast(formatted_outputs, tf.float32)
 downscaled_frame_numbers = downscaled_formatted_outputs[:, 0]
@@ -109,16 +90,36 @@ downscaled_formatted_outputs = tf.stack([downscaled_frame_numbers, downscaled_x_
 downscaled_formatted_outputs = tf.cast(downscaled_formatted_outputs, tf.int32)
 
 # print(f"formatted_outputs: {formatted_outputs.shape}")
-downscaled_output = format_output_bell_curve(frame_numbers, downscaled_formatted_outputs, width=320, height=128)
-output = format_output_bell_curve(frame_numbers, formatted_outputs)
+downscaled_output = format_output_bell_curve(tf.reshape(downscaled_frame_numbers, (-1, 1)), downscaled_formatted_outputs, width=320, height=128)
+output = format_output_bell_curve(tf.reshape(formatted_outputs[:, 0], (-1, 1)), formatted_outputs)
+
+#######
+
+### INPUT ######
+
+video_tensor = load_tensor("data/game_1")
+print(f"input shape: {input.shape}")
+start_frame = 22
+end_frame = 56
+batch_size = end_frame - start_frame
+
+input = format_input(formatted_outputs, video_tensor)
+
+downscaled_input = downscale(input, (128, 320))
+downscaled_input = collapse_channels(downscaled_input)
+
+print(f"downscaled_input shape: {downscaled_input.shape}")
+
 print(f"downscaled_output shape: {downscaled_output[0].shape}, {downscaled_output[1].shape}")
 
 global_model = GlobalModel()
-# print(f"downscaled_input shape: {downscaled_input.shape}")
-# print(f"downscaled_output x: {downscaled_output[0]}")
-# print(f"downscaled_output y: {downscaled_output[1]}")
+
 global_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-global_model.fit(downscaled_input, downscaled_output, batch_size=batch_size, epochs=100)
+global_model.fit(downscaled_input, downscaled_output, batch_size=batch_size, epochs=3)
+
+# Save the model to a specified directory
+global_model.save('global_model')
+
 
 
 global_predictions = global_model.predict(downscaled_input, batch_size=batch_size)
