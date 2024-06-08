@@ -35,6 +35,42 @@ def load_tensor(file_path):
     tensor = tf.io.parse_tensor(serialized_tensor, out_type=tf.float32)
     return tensor
 
+def downscale_video(input_fp, output_fp, target_height, target_width):
+    """
+    Downscale a video to the desired dimensions.
+
+    Args:
+    input_fp (str): File path to the input video.
+    output_fp (str): File path to save the downscaled video.
+    target_height (int): The target height for the downscaled video.
+    target_width (int): The target width for the downscaled video.
+    """
+    # Initialize the video reader
+    video_reader = skvideo.io.vreader(input_fp)
+
+    # Initialize a list to hold the downscaled frames
+    downscaled_frames = []
+    i = 0
+    # Iterate over the video frames
+    for frame in video_reader:
+        if i % 1000 == 0:
+            print(f"i: {i}")
+        i += 1
+        # Downscale the frame to the desired dimensions
+        downscaled_frame = skimage.transform.resize(frame, (target_height, target_width), anti_aliasing=True)
+
+        # Convert the frame back to the range [0, 255] and cast to uint8
+        downscaled_frame = (downscaled_frame * 255).astype(np.uint8)
+
+        # Append the downscaled frame to the list
+        downscaled_frames.append(downscaled_frame)
+
+    # Convert the list of downscaled frames to a numpy array
+    downscaled_frames = np.array(downscaled_frames)
+
+    # Write the downscaled frames to the output video
+    skvideo.io.vwrite(output_fp, downscaled_frames)
+
 def video_to_tensor(video_fp, frame_indices_tensor):
     """
     Load a video and extract specific frames.
