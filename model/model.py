@@ -53,8 +53,9 @@ class Model(tf.keras.Model):
         #print(f"beginning shape: {input.shape}")
         _, _, h0, w0, _ = input.shape
         x1, y1 = self.global_stage(input)
-        #print(f"x1 shape: {x1.shape}, y1 shape: {y1.shape}")
 
+        #print(f"x1 shape: {x1.shape}, y1 shape: {y1.shape}")
+        """
         _, h1 = y1.shape
         _, w1 = x1.shape
 
@@ -85,5 +86,18 @@ class Model(tf.keras.Model):
         #print(f"h0: {h0}, w0: {w0}, h1: {h1}, w1: {w1}")
 
         #print(f"Final x, y shape: {x.shape}, {y.shape}")
+
+        return x, y
+        """
+
+class GlobalModel(tf.keras.Model):
+    def __init__(self):
+        super(GlobalModel, self).__init__()
+
+        self.global_stage = GlobalStage()
+
+    def call(self, input):
+        #print(f"beginning shape: {input.shape}")
+        x, y = self.global_stage(input)
 
         return x, y
