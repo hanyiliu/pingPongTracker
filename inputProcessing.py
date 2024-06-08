@@ -35,9 +35,37 @@ def load_tensor(file_path):
     tensor = tf.io.parse_tensor(serialized_tensor, out_type=tf.float32)
     return tensor
 
-def video_to_tensor(video_fp):
-    video_tensor = skvideo.io.vread(video_fp)
+def video_to_tensor(video_fp, frame_indices_tensor):
+    """
+    Load a video and extract specific frames.
+
+    Args:
+    video_fp (str): File path to the video.
+    frame_indices_tensor (tf.Tensor): Tensor containing the frame indices to extract.
+
+    Returns:
+    tf.Tensor: Tensor containing the extracted frames.
+    """
+    # Convert frame_indices_tensor to a numpy array
+    frame_indices = frame_indices_tensor.numpy()
+
+    # Initialize the video reader
+    video_reader = skvideo.io.vreader(video_fp)
+
+    # Initialize a list to hold the extracted frames
+    frames_list = []
+
+    # Iterate over the video frames and extract the desired frames
+    for i, frame in enumerate(video_reader):
+        #print(f"i: {i}")
+        if i in frame_indices:
+            print(f"{i} Found")
+            frames_list.append(frame)
+
+    # Convert the list of frames to a tensor
+    video_tensor = tf.convert_to_tensor(np.array(frames_list))
     print(video_tensor.shape)
+
     return video_tensor
 
 def temporary_format_input(frames):
