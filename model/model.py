@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-from model.utilities import downscale, crop, pad
+from model.utilities import downscale, pad
 from model.featureExtractor import FeatureExtractor
 from model.coordExtractor import CoordExtractor
 
@@ -15,8 +15,8 @@ class GlobalStage(tf.keras.layers.Layer):
 
     def call(self, input):
         #input = downscale(input, (128, 320))
-        
-        #print(f"Shape: {input.shape}")
+
+        print(f"Shape: {input.shape}")
         input = self.feature_extractor(input)
         x1 = self.x_coord_extractor(input)
         y1 = self.y_coord_extractor(input)
@@ -32,9 +32,9 @@ class LocalStage(tf.keras.layers.Layer):
         self.x_coord_extractor = CoordExtractor(640)
         self.y_coord_extractor = CoordExtractor(256)
 
-    def call(self, input, x1, y1):
+    def call(self, input):
         # print("Begin crop")
-        input = crop(input, (x1, y1), (128, 320))
+        # input = crop(input, (x1, y1), (128, 320))
         # print("Finished cropping")
         input = self.feature_extractor(input)
         x2 = self.x_coord_extractor(input)
@@ -100,4 +100,17 @@ class GlobalModel(tf.keras.Model):
         #print(f"beginning shape: {input.shape}")
         x, y = self.global_stage(input)
 
+        return x, y
+
+class LocalModel(tf.keras.Model):
+    def __init__(self):
+        super(LocalModel, self).__init__()
+
+        self.local_stage = LocalStage()
+
+    def call(self, input):
+        print(f"beginning shape: {input.shape}")
+        x, y = self.local_stage(input)
+
+        #print(f"h0: {h0}, w0: {w0}, h1: {h1}, w1: {w1}")
         return x, y

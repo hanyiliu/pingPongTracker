@@ -37,93 +37,104 @@ def downscale(frames, target_dimension):
     #print(downscaled_frames)
 
     return downscaled_frames
+#
+# def crop_single(frames, coordinates, target_dimension):
+#     """
+#     Crop one sample's frames around the specified coordinates to the target dimensions.
+#
+#     Args:
+#     frames (tf.Tensor): Input frames with shape (frames, height, width, channels).
+#     coordinates (tuple): Center coordinates for cropping (center_y, center_x).
+#     target_dimension (tuple): Target dimensions (target_height, target_width).
+#
+#     Returns:
+#     tf.Tensor: Cropped frames of shape (frames, target_height, target_width, channels).
+#     """
+#     input_height, input_width = frames.shape[1], frames.shape[2]
+#
+#     # Extract center coordinates
+#     center_y, center_x = coordinates
+#     center_y = tf.cast(center_y, tf.int32)
+#     center_x = tf.cast(center_x, tf.int32)
+#
+#     # Extract target dimensions
+#     target_height, target_width = target_dimension
+#     target_height = tf.cast(target_height, tf.int32)
+#     target_width = tf.cast(target_width, tf.int32)
+#
+#     # Calculate cropping parameters
+#     y_start = tf.cast(tf.math.maximum(center_y - target_height // 2, 0), tf.int32)
+#     y_end = y_start + target_height
+#     x_start = tf.cast(tf.math.maximum(center_x - target_width // 2, 0), tf.int32)
+#     x_end = x_start + target_width
+#
+#     # Adjust if the calculated end points are outside the image dimensions
+#     if y_end > input_height:
+#         y_start = input_height - target_height
+#         y_end = input_height
+#     if x_end > input_width:
+#         x_start = input_width - target_width
+#         x_end = input_width
+#
+#     # Crop the frames
+#     cropped_frames = tf.image.crop_to_bounding_box(frames, y_start, x_start, target_height, target_width)
+#     return cropped_frames
+#
 
-def crop_single(frames, coordinates, target_dimension):
+# Crop in the past:
+# def crop(frames, coordinates, target_dimension):
+    # # Unpack dimensions
+    # batch_size, frames_count, _, _, channels_count = frames.shape
+    # target_height, target_width = target_dimension
+    #
+    # cropped_frames = tf.TensorArray(tf.float32, size=batch_size)
+    #
+    # for sample_index in range(batch_size):
+    #     sample = frames[sample_index]
+    #     cropped_sample = crop_single(sample, (coordinates[0][sample_index], coordinates[1][sample_index]), target_dimension)
+    #     cropped_sample = tf.cast(cropped_sample, tf.float32)  # Ensure dtype is float32
+    #     cropped_frames = cropped_frames.write(sample_index, cropped_sample)
+    #
+    # cropped_frames = cropped_frames.stack()
+    # return cropped_frames
+
+def crop_output(output, center, target_length):
     """
-    Crop one sample's frames around the specified coordinates to the target dimensions.
+    Crop output with center at center and having a target length of target_length.
 
     Args:
-    frame (tf.Tensor): Input frame with shape (frames, height, width, channels).
-    coordinates (tuple): Center coordinates for cropping (center_y, center_x).
-    target_dimension (tuple): Target dimensions (target_height, target_width).
+    output (tf.Tensor): Tensor of shape (batch_size, original_length).
+    center (tf.Tensor): Tensor of shape (batch_size, 1), where each element is the center of the desired crop
+    target_length (int): Target length
 
     Returns:
-    tf.Tensor: Cropped frame of shape (frames, target_height, target_width, channels).
-    """
-    input_height = 1080
-    input_width = 1920
-    #print(f"Single frames: {frames.shape}, Coordinates: {coordinates}, Target: {target_dimension}")
-    # Extract center coordinates
-
-    center_y, center_x = coordinates
-    center_y = tf.cast(center_y, tf.int32)
-    center_x = tf.cast(center_x, tf.int32)
-
-    # Extract target dimensions
-    target_height, target_width = target_dimension
-    target_height = tf.cast(target_height, tf.int32)
-    target_width = tf.cast(target_width, tf.int32)
-    # Calculate cropping parameters
-    y_start = tf.cast(tf.math.maximum(center_y - target_height // 2, 0), tf.int32)
-
-    y_end = y_start + target_height
-    x_start = tf.cast(tf.math.maximum(center_x - target_width // 2, 0), tf.int32)
-    x_end = x_start + target_width
-
-    # Adjust if the calculated end points are outside the image dimensions
-    if y_end > input_height:
-        y_start = input_height - target_height
-        y_end = input_height
-        # y_end = tf.cast(y_end, tf.int64)  # Ensure consistent dtype
-    if x_end > input_width:
-        x_start = input_width - target_width
-        x_end = input_width
-        # x_end = tf.cast(x_end, tf.int64)  # Ensure consistent dtype
-
-    # Crop the frames
-    cropped_frames = tf.image.crop_to_bounding_box(
-        frames, y_start, x_start, target_height, target_width)  # Corrected cropping range
-    #print(f"cropped shape: {cropped_frames.shape}")
-    return cropped_frames
-
-def crop(frames, coordinates, target_dimension):
-    """
-    Crop all sample around the specified coordinates to the target dimensions.
-
-    Args:
-    frame (tf.Tensor): Input frame with shape (batch_size, frames, height, width, channels).
-    coordinates (tuple of tf.Tensor): Center coordinates for cropping (center_y, center_x).
-    target_dimension (tuple): Target dimensions (target_height, target_width).
-
-    Returns:
-    tf.Tensor: Cropped frame of shape (batch_size, frames, target_height, target_width, channels).
+    tf.Tensor: Cropped tensor of shape (batch_size, target_length).
     """
 
-    # Unpack dimensions
-    batch_size, frames_count, _, _, channels_count = frames.shape
-    target_height, target_width = target_dimension
+    batch_size = tf.shape(output)[0]
+    original_length = tf.shape(output)[1]
 
-    cropped_frames = tf.cast(tf.zeros((batch_size, frames_count, target_height, target_width, channels_count)), tf.float32)
+    # Calculate start and end indices for cropping
+    half_length = target_length // 2
+    start_indices = tf.maximum(center - half_length, 0)
+    end_indices = tf.minimum(center + half_length + target_length % 2, original_length)
 
-    for sample_index in range(frames.shape[0]):
-        sample = frames[sample_index]
-        cropped_sample = crop_single(sample, (coordinates[0][sample_index], coordinates[1][sample_index]), target_dimension) # Return shape (frames_count, target_height, target_width, channels_count)
-        #print(f"Processing sample {sample_index}: {sample.shape}")
-        #print(f"sample_index type: {type(sample_index)}")
-        indices = tf.constant([[sample_index]])
-        update = tf.cast(tf.expand_dims(cropped_sample, 0), tf.float32)
-        cropped_frames = tf.cast(cropped_frames, tf.float32)
-        cropped_frames = tf.tensor_scatter_nd_update(cropped_frames, indices, update)
+    # Ensure the indices are within the valid range
+    start_indices = tf.minimum(start_indices, original_length - target_length)
+    end_indices = tf.maximum(end_indices, target_length)
 
+    # Create a range of indices to gather
+    indices = tf.range(target_length)
 
-    #print(f"End of crop function: {cropped_frames.shape}")
-    batch_size, frames_count, target_height, target_width, channels_count = cropped_frames.shape
-    cropped_frames = tf.reshape(cropped_frames, (batch_size, frames_count, target_height, target_width * channels_count))
-    cropped_frames = tf.transpose(cropped_frames, perm=[0, 2, 3, 1])  # shape: (batch_size, target_height, target_width * channels, frames)
-    cropped_frames = tf.reshape(cropped_frames, (batch_size, target_height, target_width, frames_count * channels_count))  # shape: (batch_size, target_height, target_width, frames * channels)
-    #print(f"Returning crop shape: {cropped_frames.shape}")
+    # Gather the cropped segments
+    cropped_output = tf.map_fn(
+        lambda i: tf.gather(output[i], tf.range(start_indices[i], end_indices[i])),
+        tf.range(batch_size),
+        dtype=tf.float32
+    )
+    print(f"cropped output: {cropped_output.shape}")
 
-    return cropped_frames
+    return cropped_output
 
 def pad(cropped_samples, length0, length1, center1):
     """
@@ -143,6 +154,7 @@ def pad(cropped_samples, length0, length1, center1):
     tf.Tensor: Padded tensor of shape (batch_size, original_length).
     """
     batch_size = cropped_samples.shape[0]
+
     #print(f"center1: {center1}")
     #print(f"length0, 1: {length0, length1}") # 1920, 320; 1080, 128
 
@@ -155,6 +167,8 @@ def pad(cropped_samples, length0, length1, center1):
 
     #print(f"pre pad: {pre_pad.shape}")
     padded_samples = tf.zeros((batch_size, length0))
+    print(f"padded_sample shape: {padded_samples.shape}")
+    print(f"batchsize: {batch_size}, length0: {length0}")
     for sample_index in range(0, batch_size):
         current_pre_pad = pre_pad[sample_index]
         current_post_pad = length0 - length1 - current_pre_pad

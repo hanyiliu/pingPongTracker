@@ -53,7 +53,6 @@ def visualize_all_frame(collapsed_frames, num_frames):
         plt.tight_layout()
         plt.show()
 
-
 def collapse_channels(frames):
     """
     Collapse the tensor of frames to merge all channels of each frame into one channel dimension,
